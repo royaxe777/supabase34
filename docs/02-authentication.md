@@ -66,7 +66,7 @@ Login Screen (default)
 | `lib/auth.ts` | Created | Authentication state + service (pub/sub pattern) |
 | `app/login.tsx` | Created | Login screen with email/password form |
 | `app/register.tsx` | Created | Registration screen with email/password/confirm |
-| `app/_layout.tsx` | Modified | Simple Stack with all screens always registered |
+| `app/_layout.tsx` | Modified | Stack with auth-based `<Redirect>` + loading state (see `docs/07-visual-identity.md`) |
 | `app/(tabs)/profile.tsx` | Modified | Shows user info + Sign Out button |
 | `app/(tabs)/scan.tsx` | Modified | Use authenticated user instead of hardcoded ID |
 | `app/(tabs)/history.tsx` | Modified | Use authenticated user instead of hardcoded ID |
@@ -294,6 +294,8 @@ export async function signOut() {
 
 ### app/_layout.tsx
 
+> **Note:** This layout now includes an **auth-based redirect**. The current version is documented in `docs/07-visual-identity.md`. This section keeps the code that was accurate at the end of Phase 2; see the visual-identity doc for the updated file.
+
 ```typescript
 import { Stack } from 'expo-router';
 import { COLORS } from '@/constants/colors';
@@ -308,10 +310,10 @@ export default function RootLayout() {
   );
 }
 ```
-- **Simple layout** — All screens are always registered
-- No conditional rendering, no auth gate in the layout
-- Each screen handles its own navigation after auth operations
+- **Original Phase 2 layout** — All screens are always registered within a single `<Stack>`
+- Navigation is handled per-screen after auth operations (e.g. `router.replace` in login/register)
 - `headerShown: false` — All screens manage their own headers
+- A later design pass added auth-based `<Redirect>` routing on top of this single Stack (see `docs/07-visual-identity.md`)
 
 ### app/login.tsx
 
