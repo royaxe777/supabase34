@@ -11,7 +11,8 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
+import { Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppButton from '@/components/AppButton';
@@ -21,9 +22,12 @@ import { signUp } from '@/lib/auth';
 
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState<'student' | 'teacher'>('student');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,7 +35,7 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     setError(null);
 
-    if (!email.trim() || !password || !confirmPassword) {
+    if (!fullName.trim() || !email.trim() || !password || !confirmPassword) {
       setError('All fields are required.');
       return;
     }
@@ -49,11 +53,19 @@ export default function RegisterScreen() {
     setLoading(true);
 
     try {
-      const { error: authError } = await signUp(email.trim(), password);
+      const { data, error: authError } = await signUp(
+        email.trim(),
+        password,
+        { full_name: fullName.trim(), role }
+      );
 
       if (authError) {
         setError(authError.message);
+      } else if (data.session) {
+        // Email confirmation is disabled, so a session exists right away.
+        router.replace('/(tabs)');
       } else {
+        // Email confirmation is on — show the "check your email" message.
         setSuccess(true);
       }
     } catch (err) {
@@ -96,6 +108,16 @@ export default function RegisterScreen() {
               </View>
             ) : (
               <View style={styles.form}>
+                <Text style={styles.label}>Full Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={fullName}
+                  onChangeText={setFullName}
+                  placeholder="e.g. Maria Santos"
+                  placeholderTextColor={COLORS.textSecondary}
+                  editable={!loading}
+                />
+
                 <Text style={styles.label}>Email</Text>
                 <TextInput
                   style={styles.input}
@@ -129,6 +151,44 @@ export default function RegisterScreen() {
                   secureTextEntry
                   editable={!loading}
                 />
+
+                <Text style={styles.label}>I am a...</Text>
+                <View style={styles.roleRow}>
+                  <Pressable
+                    style={[
+                      styles.roleChip,
+                      role === 'student' && styles.roleChipActive,
+                    ]}
+                    onPress={() => setRole('student')}
+                    disabled={loading}
+                  >
+                    <Text
+                      style={[
+                        styles.roleChipText,
+                        role === 'student' && styles.roleChipTextActive,
+                      ]}
+                    >
+                      Student
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[
+                      styles.roleChip,
+                      role === 'teacher' && styles.roleChipActive,
+                    ]}
+                    onPress={() => setRole('teacher')}
+                    disabled={loading}
+                  >
+                    <Text
+                      style={[
+                        styles.roleChipText,
+                        role === 'teacher' && styles.roleChipTextActive,
+                      ]}
+                    >
+                      Teacher
+                    </Text>
+                  </Pressable>
+                </View>
 
                 {error && <Text style={styles.error}>{error}</Text>}
 
@@ -207,6 +267,32 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
     color: COLORS.textPrimary,
+  },
+  roleRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 2,
+  },
+  roleChip: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+  },
+  roleChipActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary + '1A',
+  },
+  roleChipText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  roleChipTextActive: {
+    color: COLORS.primary,
   },
   error: {
     fontSize: 14,

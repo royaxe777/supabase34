@@ -125,3 +125,24 @@
 - **Testing performed:** TypeScript type check (`npx tsc --noEmit`) — passed with no errors, confirming the refactored module and all screens still compile. Verified each screen's usage matches the preserved signatures: `registerAttendance(data, studentId)` returns `{success, message}` (scan.tsx), `getAttendanceHistory(studentId)` returns `AttendanceRecord[]` (history.tsx), `createEvent({eventId,title,start,end})` (teacher.tsx).
 - **Result:** Pass — `lib/database.ts` now reads/writes cloud Supabase data. Registration flow, history, and event creation all mapped to the Phase 3 schema. Function contract preserved so no screen edits were required.
 - **Next step:** Phase 5 — Profile management (link `profiles` table to the Profile screen, per-user display data).
+
+---
+
+### Phase 5 — Profiles
+
+- **Date:** 2026-09-03
+- **Phase:** 5
+- **Module:** Profile Management (Names & Roles)
+- **Files changed:**
+  - `lib/auth.ts` (signUp now accepts a name + role and updates the profiles row)
+  - `app/register.tsx` (added Full Name field and Student/Teacher role picker; navigates to tabs when a session exists)
+  - `app/(tabs)/profile.tsx` (loads the profile, shows name/role/email/ID, editable full name)
+- **Files created:**
+  - `lib/profiles.ts` (getProfile / updateProfile service helpers)
+  - `docs/05-profiles.md` (comprehensive student-centered documentation)
+- **Files removed:** None
+- **What changed:** People are no longer anonymous. Added a Full Name field and a "I am a..." Student/Teacher picker to the Sign Up form. `signUp` now passes the chosen name and role and, after the Phase 3 trigger creates the profile row, UPDATEs it with `full_name` and `role`. Created `lib/profiles.ts` with `getProfile(userId)` and `updateProfile(userId, updates)` helpers. The Profile screen now loads the user's profile via `useFocusEffect`, displays a role badge (Student/Teacher), full name, email, and user ID, and lets the user edit their full name. On signup with email confirmation disabled, the register screen now `router.replace('/(tabs)')` when a session exists (previously it always showed "check your email").
+- **Why it changed:** Phase 4 had no concept of a Teacher vs Student, making it impossible to create two distinct test accounts or later gate teacher features. The `profiles` table (Phase 3) already stores `full_name` and `role` but they were never filled. This phase wires the app to that table, giving each user an identity and distinguishing roles.
+- **Testing performed:** TypeScript type check (`npx tsc --noEmit`) — passed with no errors. Verified RLS policies allow the flow: "Profiles are viewable by owner" (select), "Users can update their own profile" (update). Confirmed the schema needs no changes (the `profiles` table already has `full_name`, `role` with the `student`/`teacher` check constraint, and the auto-profile trigger). Confirmed signup updates the existing trigger-created row rather than inserting (avoids the primary key violation).
+- **Result:** Pass — Users can choose Student/Teacher at signup, their name/role persist to the cloud `profiles` table, and the Profile screen displays and lets them edit their name. Teachers and Students are now distinct.
+- **Next step:** Phase 6 — Attendance history by role (Teacher views their events' attendance; role-aware UI).
