@@ -146,3 +146,22 @@
 - **Testing performed:** TypeScript type check (`npx tsc --noEmit`) — passed with no errors. Verified RLS policies allow the flow: "Profiles are viewable by owner" (select), "Users can update their own profile" (update). Confirmed the schema needs no changes (the `profiles` table already has `full_name`, `role` with the `student`/`teacher` check constraint, and the auto-profile trigger). Confirmed signup updates the existing trigger-created row rather than inserting (avoids the primary key violation).
 - **Result:** Pass — Users can choose Student/Teacher at signup, their name/role persist to the cloud `profiles` table, and the Profile screen displays and lets them edit their name. Teachers and Students are now distinct.
 - **Next step:** Phase 6 — Attendance history by role (Teacher views their events' attendance; role-aware UI).
+
+---
+
+### Phase 6 — Attendance by Role (Teacher View)
+
+- **Date:** 2026-09-03
+- **Phase:** 6
+- **Module:** Role-aware Attendance History
+- **Files changed:**
+  - `app/(tabs)/history.tsx` (now role-aware: reads the profile role and branches between Student history and Teacher event attendance)
+- **Files created:**
+  - `lib/attendance.ts` (getTeacherEventAttendance / getTeacherEventSummary service helpers)
+  - `docs/06-attendance-by-role.md` (comprehensive student-centered documentation)
+- **Files removed:** None
+- **What changed:** The History tab became role-aware. It now reads the user's `role` from `profiles` (Phase 5) via `getProfile` and branches: a **Student** sees their own attendance history (Phase 4 behavior, unchanged); a **Teacher** sees a list of the events they created with an attendee count badge and a list of attendees (student id + scan time). Added `lib/attendance.ts` with `getTeacherEventAttendance(teacherId)` which does two Supabase queries (events by `created_by`, then attendance `.in('event_id', ...)`) and groups attendance per event on the client. This uses the existing Phase 3 RLS policy "Teachers can view attendance for their events".
+- **Why it changed:** The RLS policy for teachers existed from Phase 3 but nothing in the app used it — Teachers could create events but had no way to see who attended. This phase makes the data layer reflect the role distinction established in Phase 5, giving Teachers a usable attendance summary while preserving the Student experience.
+- **Testing performed:** TypeScript type check (`npx tsc --noEmit`) — passed with no errors. Verified the teacher query uses the `created_by` and `in(event_id)` filters and relies on the existing RLS policy. Confirmed the Student path is unchanged and still calls `getAttendanceHistory`.
+- **Result:** Pass — History tab is role-aware. Teachers see their events' attendance (count + attendee list); Students see their own history. No schema changes required.
+- **Next step:** Phase 7 — Events (Supabase): teachers create events directly in the cloud (full event service module) and role-gate the Teacher tab.
