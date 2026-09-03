@@ -21,6 +21,7 @@ import { COLORS } from '@/constants/colors';
 import { useAuth } from '@/lib/auth';
 import { getProfile, type Role } from '@/lib/profiles';
 import { createEvent } from '@/lib/events';
+import { buildQRPayload } from '@/lib/qr';
 
 function toLocalISO(date: Date) {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -139,18 +140,14 @@ export default function TeacherScreen() {
       end: toLocalISO(endDate),
     };
 
-    createEvent(eventData).then(() => {
+    createEvent(eventData).then(({ error }) => {
+      if (error) {
+        setMessage('Could not save the event. Please try again.');
+        return;
+      }
       setMessage('Event saved! Scan the QR with the Scan tab to test it.');
-      // Fix 5.2: Payload uses key `event` to match scanner validation
-      setPayload(
-        JSON.stringify({
-          v: 1,
-          event: eventData.eventId,
-          title: eventData.title,
-          start: eventData.start,
-          end: eventData.end,
-        })
-      );
+      // Fix 5.2: Payload uses key `event` (v:1 format) to match scanner validation
+      setPayload(buildQRPayload(eventData));
     });
   };
 

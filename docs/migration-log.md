@@ -185,3 +185,23 @@
 - **Testing performed:** TypeScript type check (`npx tsc --noEmit`) — passed with no errors. Verified `createEvent` is no longer exported from `lib/database.ts` and the Teacher screen imports it from `lib/events.ts`. Confirmed the `onConflict: 'event_code'` upsert preserves the Phase 4 behavior.
 - **Result:** Pass — Events live in their own module; `lib/database.ts` is attendance-only; the Teacher tab is role-gated. Teachers can create events (with `created_by` set); Students are locked out of event creation.
 - **Next step:** Phase 8 — QR generation: preserve the v:1 format and generate QR codes backed by cloud events (formalize the `getEventByCode` validation path).
+
+---
+
+### Phase 8 — QR Generation (v:1 Format, Cloud-Backed)
+
+- **Date:** 2026-09-03
+- **Phase:** 8
+- **Module:** QR Payload Service
+- **Files changed:**
+  - `app/(tabs)/teacher.tsx` (imports `buildQRPayload` from `lib/qr`; the QR text is now built via the shared builder, and it is only shown after `createEvent` succeeds — the `{ error }` result is checked)
+  - `lib/database.ts` (`registerAttendance` now validates the QR through `parseQRPayload`; removed the inline `JSON.parse`/`v !== 1` duplication and the local `EventPayload` type)
+- **Files created:**
+  - `lib/qr.ts` (canonical `v:1` payload builder + parser: `buildQRPayload`, `parseQRPayload`, `QRPayload`, `ParseQRResult` types)
+  - `docs/09-qr-generation.md` (comprehensive student-centered documentation)
+- **Files removed:** None
+- **What changed:** Created `lib/qr.ts` as the single source of truth for the QR payload format. `buildQRPayload` maps the app's `eventId` → the payload's `event` key and produces the `v:1` JSON (`{ v: 1, event, title?, start?, end? }`). `parseQRPayload` returns a discriminated union (`{ ok: true, payload } | { ok: false, message }`), rejecting non-JSON and any text whose `v !== 1` or missing event code. The Teacher screen now builds the QR through `buildQRPayload` and only shows it after the event is successfully saved to Supabase (cloud-backed). `registerAttendance` validates incoming scans through the shared `parseQRPayload`, removing the duplicate inline validation.
+- **Why it changed:** QR generation and validation were hand-written in two places and could drift apart, silently breaking scanning. A single module centralizes the format contract so both sides always agree. Requiring the cloud save to succeed first ensures no QR is shown for an event that never reached the database.
+- **Testing performed:** TypeScript type check (`npx tsc --noEmit`) — passed with no errors. Confirmed both the Teacher screen (builder) and `registerAttendance` (parser) now reference `lib/qr.ts`, and that the `v:1` format is preserved so existing scan-registration logic (Phase 4) is unchanged.
+- **Result:** Pass — One source of truth for the QR format; Teacher-saved events produce matching QRs and scan correctly; invalid or wrong-version QRs are rejected with clear messages.
+- **Next step:** Phase 9 — QR attendance: register scanned attendance against cloud events (formalize/solidify the scan-to-register flow and time-window handling).
