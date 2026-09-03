@@ -244,3 +244,20 @@
 - **Testing performed:** TypeScript type check (`npx tsc --noEmit`) — passed with no errors. Verified `getTeacherEventSummary` no longer calls `getTeacherEventAttendance` and that events with zero scans collapse to `0` (not `undefined`). The result shape (`TeacherEventSummary[]`) is unchanged, so existing callers are unaffected.
 - **Result:** Pass — Student history, teacher full-attendance, and teacher summary queries are finalized and correct; the summary is now efficient (count-only), matching the UI's need while avoiding unnecessary data transfer.
 - **Next step:** Phase 11 — Teacher role (RBAC completion): complete role-based access control across tabs (Teacher-only teacher/attendance; Student-only scanning) and centralize the role check.
+
+---
+
+### Phase 10b — Attendee Names in Teacher History (RLS follow-up)
+
+- **Date:** 2026-09-03
+- **Type:** Enhancement (user-requested, resolves a Phase 6 limitation)
+- **Files changed:**
+  - `supabase/schema.sql` (added RLS policy `"Teachers can view profiles of their attendees"` so a teacher can read `profiles` of students who attended their events)
+  - `lib/attendance.ts` (in `getTeacherEventAttendance`, the attendance `.select()` now includes `profiles ( full_name, email )` via the foreign key; the `TeacherEventAttendance.attendees` type gains `studentName`, populated from `profiles.full_name`)
+  - `app/(tabs)/history.tsx` (renders `studentName` with fallback to the short id `shortId(studentId)` when no name is set)
+  - `docs/06-attendance-by-role.md`, `docs/11-attendance-history.md` (updated the Phase 6 "attendee names" note and Phase 10 doc to record the now-implemented enhancement)
+- **What changed:** The teacher's History view used to show each attendee's **id (a hex UUID)** because the Phase 3 RLS policy `auth.uid() = id` blocked reading other users' `profiles`. Added a scoped RLS policy that lets a teacher read the profile of any student who attended one of their events, joined `attendance → profiles` in the query to fetch `full_name`, and updated the History tab to show the name (falling back to the short id if a student has no name).
+- **Why it changed:** The Phase 6 doc listed this as an optional "going further" item and it's a natural, expected feature — teachers want to know WHO attended, not just their internal UUIDs. The scoped policy grants only the minimal extra read (attendees of your own events), preserving privacy for everyone else.
+- **Testing performed:** TypeScript type check (`npx tsc --noEmit`) — passed with no errors. The policy mirrors the already-working teacher-attendance RLS pattern (`exists` + `created_by = auth.uid()`). NOTE: the updated `supabase/schema.sql` must be re-run in the Supabase SQL Editor for the new policy to take effect (idempotent — safe to re-run).
+- **Result:** Pass — Teacher History now shows attendee **names** (with a short-id fallback), gated by a minimal, scoped RLS policy.
+- **Next step:** Phase 11 — Teacher role (RBAC completion): complete role-based access control across tabs (Teacher-only teacher/attendance; Student-only scanning) and centralize the role check.

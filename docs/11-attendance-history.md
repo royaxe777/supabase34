@@ -237,6 +237,25 @@ npx expo start
 
 ---
 
+## 10b. BONUS — Show attendee names
+
+At Phase 6, the teacher view showed the student's **id (a hex UUID)** because the `profiles` RLS policy (`auth.uid() = id`) blocked reading other users' profiles. This was resolved here:
+
+1. **Schema (`supabase/schema.sql`)** — added `"Teachers can view profiles of their attendees"`, so a teacher can read the `profiles` of students who attended their events:
+   ```sql
+   exists (
+     select 1 from public.attendance a
+     join public.events e on e.id = a.event_id
+     where a.student_id = profiles.id and e.created_by = auth.uid()
+   )
+   ```
+2. **Query (`lib/attendance.ts`)** — `getTeacherEventAttendance` now selects `profiles ( full_name, email )` via the foreign key from `attendance.student_id → profiles.id`, and each attendee object now includes `studentName`.
+3. **UI (`app/(tabs)/history.tsx`)** — renders `studentName`, falling back to the short id (`…last8`) when a student has no name set.
+
+> ⚠️ **You must re-run the schema** for the new RLS policy to take effect: open the Supabase SQL Editor, paste `supabase/schema.sql`, Run. Then re-test the teacher History view.
+
+---
+
 ## CHECK YOUR UNDERSTANDING — ANSWERS
 
 1. It reused `getTeacherEventAttendance`, which downloads every attendee row (student_id, scanned_at) just to throw them away and count them.

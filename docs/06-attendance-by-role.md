@@ -78,7 +78,7 @@ export type TeacherEventAttendance = {
 | `attendeeCount` | How many students scanned. |
 | `attendees` | The list of student ids + their scan times. |
 
-> 💡 **Note on attendee names:** Because of the RLS policy, a Teacher can read a student's `attendance` rows but **not** other users' `profiles` (names). So the list shows the **student's id** and **scan time**, not their name. To show names we'd add another policy (see "Going further" at the end).
+> 💡 **Note on attendee names (historical):** At Phase 6, because of the RLS policy, a Teacher could read a student's `attendance` rows but **not** other users' `profiles` (names). So the list originally showed the **student's id** and **scan time**, not their name. A follow-up in the Phase 10 material added an RLS policy + a `profiles` join so the History tab now shows **names** (see Section 10).
 
 ### 3b. Step 1 — Fetch the teacher's events
 
@@ -320,10 +320,12 @@ npx expo start
 
 ## 10. GOING FURTHER: Showing student names
 
+> ✅ **UPDATE (Phase 10 follow-up):** This optional enhancement is now **implemented**. A `"Teachers can view profiles of their attendees"` RLS policy was added to `supabase/schema.sql`, `getTeacherEventAttendance` joins `attendance → profiles` to read `full_name`, and the History tab now shows each attendee's name (falling back to the short id when no name is set). The policy below is what was added.
+
 Right now we show student **ids** only. To show **names**, you'd need a new RLS policy on `profiles` that lets a teacher read the profiles of users who attended their events, for example:
 
 ```sql
-create policy "Teachers can view attendee profiles"
+create policy "Teachers can view profiles of their attendees"
   on public.profiles for select
   using (
     exists (
@@ -335,7 +337,7 @@ create policy "Teachers can view attendee profiles"
   );
 ```
 
-That's an optional later enhancement (or a good Phase 6 mini-project if your lab has extra time).
+To see the original limitation before this change, see the note at the top of this document under "Note on attendee names" (Section 3). To see the full implementation, refer to the Phase 10 material in `docs/migration-log.md`.
 
 ---
 

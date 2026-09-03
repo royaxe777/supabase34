@@ -90,7 +90,7 @@ export default function HistoryScreen() {
                     {item.attendees.map((a) => (
                       <View key={a.studentId + a.scannedAt} style={styles.attendeeRow}>
                         <Text style={styles.attendeeId} numberOfLines={1}>
-                          {shortId(a.studentId)}
+                          {a.studentName ? a.studentName : shortId(a.studentId)}
                         </Text>
                         <Text style={styles.attendeeTime}>
                           {formatDate(a.scannedAt)}
