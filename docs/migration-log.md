@@ -92,4 +92,36 @@
 
 ---
 
-*Future entries will be appended below as each phase is completed.*
+### Phase 3 — Database Design
+
+- **Date:** 2026-09-03
+- **Phase:** 3
+- **Module:** Database Design
+- **Files changed:** None (no code changes)
+- **Files created:**
+  - `supabase/schema.sql` (PostgreSQL schema: profiles, events, attendance + RLS + trigger)
+  - `docs/03-database-design.md` (comprehensive 14-section documentation)
+- **Files removed:** None
+- **What changed:** Designed and wrote the PostgreSQL cloud schema that mirrors the original SQLite `events` and `attendance` tables. Added a `profiles` table that links to Supabase Auth (`auth.users`). Integrated `student_id`/`created_by` with `auth.uid()`. Added Row Level Security policies so each user can only read/write their own data. Added an auto-profile trigger that creates a profile on signup. Schema is written in `supabase/schema.sql` and is now live in the Supabase SQL Editor.
+- **Why it changed:** Establishes the cloud data layer that will replace local SQLite. RLS ensures data security in a multi-user app. `auth.users` integration means the runtime user comes from the auth token (from Phase 2), not a hardcoded STUDENT_ID.
+- **Testing performed:** Reviewed schema for correctness against the original SQLite schema. All tables/constraints/relationships documented. Schema executed in Supabase SQL Editor. Fixed reserved-word issue (`end` is a PostgreSQL keyword → renamed to `end_time`). Added `drop policy if exists` to make script idempotent/re-runnable. Confirmed the `profiles`, `events`, and `attendance` tables exist under the `public` schema in Table Editor (required a browser refresh).
+- **Result:** Pass — Cloud database schema is live in Supabase. All three tables created with RLS enabled and the auto-profile trigger installed. App code still uses SQLite (migration happens in Phase 4+).
+- **Next step:** Phase 4 — Supabase database service layer (`lib/database.ts` refactor).
+
+---
+
+### Phase 4 — Supabase Database Service
+
+- **Date:** 2026-09-03
+- **Phase:** 4
+- **Module:** Database Service Layer
+- **Files changed:**
+  - `lib/database.ts` (refactored from SQLite to Supabase)
+- **Files created:**
+  - `docs/04-database-service.md` (comprehensive student-centered documentation with line-by-line code walkthrough)
+- **Files removed:** None
+- **What changed:** Rewrote the three data functions in `lib/database.ts` to use Supabase instead of SQLite. `registerAttendance(payload, studentId)` now validates the QR, checks the time window, finds-or-creates the cloud `events` row by `event_code`, then inserts into cloud `attendance`; duplicate scans are caught by PostgreSQL unique-constraint error code `23505`. `getAttendanceHistory(studentId)` now SELECTs from cloud `attendance` joined to `events` (nested select) and re-maps `scanned_at`/`event_code`/`title` back to the screen's expected `AttendanceRecord` shape. `createEvent(event)` now uses `.upsert(..., { onConflict: 'event_code' })` and records `created_by` from the logged-in user. The public function signatures and return types (`AttendanceRecord`, `RegisterResult`, `Event`) were preserved so no screen code needed changes.
+- **Why it changed:** Replaces the local file storage with the secure, user-scoped, cloud PostgreSQL schema built in Phase 3. The query builder removes manual SQL strings, RLS enforces per-user access, and the database's unique constraint handles duplicate scans instead of fragile app-side checks. Keeping the same function contract means the Scan/History/Teacher screens are unchanged (encapsulation).
+- **Testing performed:** TypeScript type check (`npx tsc --noEmit`) — passed with no errors, confirming the refactored module and all screens still compile. Verified each screen's usage matches the preserved signatures: `registerAttendance(data, studentId)` returns `{success, message}` (scan.tsx), `getAttendanceHistory(studentId)` returns `AttendanceRecord[]` (history.tsx), `createEvent({eventId,title,start,end})` (teacher.tsx).
+- **Result:** Pass — `lib/database.ts` now reads/writes cloud Supabase data. Registration flow, history, and event creation all mapped to the Phase 3 schema. Function contract preserved so no screen edits were required.
+- **Next step:** Phase 5 — Profile management (link `profiles` table to the Profile screen, per-user display data).
