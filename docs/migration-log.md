@@ -205,3 +205,24 @@
 - **Testing performed:** TypeScript type check (`npx tsc --noEmit`) — passed with no errors. Confirmed both the Teacher screen (builder) and `registerAttendance` (parser) now reference `lib/qr.ts`, and that the `v:1` format is preserved so existing scan-registration logic (Phase 4) is unchanged.
 - **Result:** Pass — One source of truth for the QR format; Teacher-saved events produce matching QRs and scan correctly; invalid or wrong-version QRs are rejected with clear messages.
 - **Next step:** Phase 9 — QR attendance: register scanned attendance against cloud events (formalize/solidify the scan-to-register flow and time-window handling).
+
+---
+
+### Phase 9 — QR Attendance (Register Against Cloud Events)
+
+- **Date:** 2026-09-03
+- **Phase:** 9
+- **Module:** Attendance Service Consolidation
+- **Files changed:**
+  - `lib/attendance.ts` (added `registerAttendance` + `getAttendanceHistory` + their types `AttendanceRecord`/`RegisterResult`; the scanner's event lookup now reuses `getEventByCode` from `lib/events.ts`)
+  - `app/(tabs)/scan.tsx` (imports `registerAttendance` from `@/lib/attendance` instead of `@/lib/database`)
+  - `app/(tabs)/history.tsx` (imports `getAttendanceHistory`/`AttendanceRecord` from `@/lib/attendance`)
+- **Files created:**
+  - `docs/10-qr-attendance.md` (comprehensive student-centered documentation)
+- **Files removed:**
+  - `lib/database.ts` (deleted — all remaining attendance logic moved to `lib/attendance.ts`)
+- **What changed:** Consolidated all attendance operations (student register, student history, teacher views) into `lib/attendance.ts`. Refactored `registerAttendance` so the "find the event by code" step now uses `getEventByCode` from `lib/events.ts` (removing a hand-written duplicate query); the find-or-create cloud-event flow, time-window checks, duplicate `23505` guard, and `attendance`/`events` inserts are unchanged. Because nothing imported `lib/database.ts` anymore, it was deleted, and the two consumer screens were repointed to `lib/attendance.ts`.
+- **Why it changed:** Attendance code was split across two files (`database.ts` leftover + `attendance.ts` teacher views) and the scanner duplicated an event lookup that `lib/events.ts` already offered. Consolidating gives one home for all attendance logic, removes duplication, and retires the SQLite-era all-in-one file. Using the shared `getEventByCode` keeps event lookup as a single source of truth.
+- **Testing performed:** TypeScript type check (`npx tsc --noEmit`) — passed with no errors. Grep confirms no app source file references `@/lib/database` anymore. The scan-to-register flow's behavior is unchanged (same signatures/results), so the Phase 4/8 round-trip (teacher QR → student scan → cloud attendance row) is preserved.
+- **Result:** Pass — Attendance is centralized in `lib/attendance.ts`; scanning registers against cloud events via the shared `getEventByCode`; the legacy `lib/database.ts` is gone. Duplicate and time-window handling intact.
+- **Next step:** Phase 10 — Attendance history (final cloud queries): verify/polish the student history and teacher event-summary queries end-to-end against the cloud schema.
