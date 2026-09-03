@@ -226,3 +226,21 @@
 - **Testing performed:** TypeScript type check (`npx tsc --noEmit`) — passed with no errors. Grep confirms no app source file references `@/lib/database` anymore. The scan-to-register flow's behavior is unchanged (same signatures/results), so the Phase 4/8 round-trip (teacher QR → student scan → cloud attendance row) is preserved.
 - **Result:** Pass — Attendance is centralized in `lib/attendance.ts`; scanning registers against cloud events via the shared `getEventByCode`; the legacy `lib/database.ts` is gone. Duplicate and time-window handling intact.
 - **Next step:** Phase 10 — Attendance history (final cloud queries): verify/polish the student history and teacher event-summary queries end-to-end against the cloud schema.
+
+---
+
+### Phase 10 — Attendance History & Teacher Summary (Final Cloud Queries)
+
+- **Date:** 2026-09-03
+- **Phase:** 10
+- **Module:** Attendance Read Queries
+- **Files changed:**
+  - `lib/attendance.ts` (rewrote `getTeacherEventSummary` to use an efficient count-only query instead of delegating to `getTeacherEventAttendance`)
+- **Files created:**
+  - `docs/11-attendance-history.md` (comprehensive student-centered documentation)
+- **Files removed:** None
+- **What changed:** Finalized the attendance read queries. `getAttendanceHistory` (student scans joined with event titles, newest first) and `getTeacherEventAttendance` (teacher events with full attendee lists for rendering) were left unchanged — they are correct and pull the data the UI needs. `getTeacherEventSummary` was rewritten: previously it reused `getTeacherEventAttendance` and downloaded every attendee row (all columns) just to produce a count per event. It now does a lightweight query selecting only the `event_id` column from `attendance` (`.select('event_id').in('event_id', eventIds)`) and counts per event in JavaScript with `counts[r.event_id] = (counts[r.event_id] ?? 0) + 1`, defaulting to `0` for events with no scans. This produces the same results while transferring far less data for large events.
+- **Why it changed:** The old summary was a classic "download everything to count a few" performance anti-pattern. Only fetching the single `event_id` column keeps the result identical but removes the heavy attendee payload, so teacher dashboards/badges load faster as datasets grow. It also documents the rule "fetch only the columns you display" for the student audience.
+- **Testing performed:** TypeScript type check (`npx tsc --noEmit`) — passed with no errors. Verified `getTeacherEventSummary` no longer calls `getTeacherEventAttendance` and that events with zero scans collapse to `0` (not `undefined`). The result shape (`TeacherEventSummary[]`) is unchanged, so existing callers are unaffected.
+- **Result:** Pass — Student history, teacher full-attendance, and teacher summary queries are finalized and correct; the summary is now efficient (count-only), matching the UI's need while avoiding unnecessary data transfer.
+- **Next step:** Phase 11 — Teacher role (RBAC completion): complete role-based access control across tabs (Teacher-only teacher/attendance; Student-only scanning) and centralize the role check.

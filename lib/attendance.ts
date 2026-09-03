@@ -178,11 +178,40 @@ export async function getTeacherEventAttendance(
 export async function getTeacherEventSummary(
   teacherId: string
 ): Promise<TeacherEventSummary[]> {
-  const events = await getTeacherEventAttendance(teacherId);
-  return events.map((e) => ({
-    eventId: e.eventId,
-    eventCode: e.eventCode,
+  const { data: events, error: eventError } = await supabase
+    .from('events')
+    .select('id, event_code, title')
+    .eq('created_by', teacherId)
+    .order('created_at', { ascending: false });
+
+  if (eventError || !events) return [];
+
+  const eventIds = events.map((e: any) => e.id);
+  if (eventIds.length === 0) return [];
+
+  const { data: attRows, error: attError } = await supabase
+    .from('attendance')
+    .select('event_id')
+    .in('event_id', eventIds);
+
+  if (attError || !attRows) {
+    return events.map((e: any) => ({
+      eventId: e.id,
+      eventCode: e.event_code,
+      title: e.title,
+      attendeeCount: 0,
+    }));
+  }
+
+  const counts: Record<string, number> = {};
+  attRows.forEach((r: any) => {
+    counts[r.event_id] = (counts[r.event_id] ?? 0) + 1;
+  });
+
+  return events.map((e: any) => ({
+    eventId: e.id,
+    eventCode: e.event_code,
     title: e.title,
-    attendeeCount: e.attendeeCount,
+    attendeeCount: counts[e.id] ?? 0,
   }));
 }
