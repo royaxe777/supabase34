@@ -164,4 +164,24 @@
 - **Why it changed:** The RLS policy for teachers existed from Phase 3 but nothing in the app used it — Teachers could create events but had no way to see who attended. This phase makes the data layer reflect the role distinction established in Phase 5, giving Teachers a usable attendance summary while preserving the Student experience.
 - **Testing performed:** TypeScript type check (`npx tsc --noEmit`) — passed with no errors. Verified the teacher query uses the `created_by` and `in(event_id)` filters and relies on the existing RLS policy. Confirmed the Student path is unchanged and still calls `getAttendanceHistory`.
 - **Result:** Pass — History tab is role-aware. Teachers see their events' attendance (count + attendee list); Students see their own history. No schema changes required.
-- **Next step:** Phase 7 — Events (Supabase): teachers create events directly in the cloud (full event service module) and role-gate the Teacher tab.
+- **Next step:** Phase 7 — Events (Supabase) and role-gate the Teacher tab.
+
+---
+
+### Phase 7 — Events (Supabase Service)
+
+- **Date:** 2026-09-03
+- **Phase:** 7
+- **Module:** Events Service + Teacher Role Gate
+- **Files changed:**
+  - `lib/database.ts` (removed `createEvent` and the `Event` type — attendance-only now)
+  - `app/(tabs)/teacher.tsx` (imports `createEvent` from `lib/events`; added role gate: loads `profiles.role` via `useFocusEffect` and shows a "Teachers Only" lock screen for non-teachers)
+- **Files created:**
+  - `lib/events.ts` (createEvent, getEventsByTeacher, getEventByCode service helpers)
+  - `docs/08-events.md` (comprehensive student-centered documentation; this is migration Phase 7, file numbered 08 because 07 is the separate visual-identity doc)
+- **Files removed:** None
+- **What changed:** Extracted event management into a dedicated `lib/events.ts` module with `createEvent` (upsert by `event_code`, sets `created_by` from the logged-in user), `getEventsByTeacher`, and `getEventByCode`. Removed the redundant `createEvent`/`Event` from `lib/database.ts` so it now handles attendance only; the Teacher screen was the sole consumer and its call site was unchanged (same name/args). Role-gated the Teacher tab: only users whose `profiles.role === 'teacher'` can see the create-event form; students get a "Teachers Only" access-denied state while the role loads via `useFocusEffect`.
+- **Why it changed:** Event logic was co-located in the general-purpose `database.ts`, and the Teacher tab had no role protection — any Student could create events. A dedicated events module gives separation of concerns and reusable helpers (`getEventByCode` for later QR validation), and the role gate closes the app-side authorization gap alongside the Phase 3 RLS policies.
+- **Testing performed:** TypeScript type check (`npx tsc --noEmit`) — passed with no errors. Verified `createEvent` is no longer exported from `lib/database.ts` and the Teacher screen imports it from `lib/events.ts`. Confirmed the `onConflict: 'event_code'` upsert preserves the Phase 4 behavior.
+- **Result:** Pass — Events live in their own module; `lib/database.ts` is attendance-only; the Teacher tab is role-gated. Teachers can create events (with `created_by` set); Students are locked out of event creation.
+- **Next step:** Phase 8 — QR generation: preserve the v:1 format and generate QR codes backed by cloud events (formalize the `getEventByCode` validation path).

@@ -13,10 +13,14 @@ import DateTimePicker, {
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 
 import AppButton from '@/components/AppButton';
 import { COLORS } from '@/constants/colors';
-import { createEvent } from '@/lib/database';
+import { useAuth } from '@/lib/auth';
+import { getProfile, type Role } from '@/lib/profiles';
+import { createEvent } from '@/lib/events';
 
 function toLocalISO(date: Date) {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -38,6 +42,9 @@ function formatDateTime(date: Date) {
 }
 
 export default function TeacherScreen() {
+  const { user } = useAuth();
+  const [role, setRole] = useState<Role | null>(null);
+  const [roleLoading, setRoleLoading] = useState(true);
   const [title, setTitle] = useState('');
   const [eventId, setEventId] = useState('');
   const [startDate, setStartDate] = useState(() => new Date());
@@ -48,6 +55,26 @@ export default function TeacherScreen() {
   const [editingPart, setEditingPart] = useState<'date' | 'time'>('date');
   const [payload, setPayload] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      if (!user) {
+        setRoleLoading(false);
+        return () => {
+          active = false;
+        };
+      }
+      getProfile(user.id).then((profile) => {
+        if (!active) return;
+        setRole(profile?.role ?? 'student');
+        setRoleLoading(false);
+      });
+      return () => {
+        active = false;
+      };
+    }, [user])
+  );
 
   const openPicker = (target: 'start' | 'end') => {
     setEditTarget(target);
@@ -126,6 +153,27 @@ export default function TeacherScreen() {
       );
     });
   };
+
+  if (roleLoading) {
+    return (
+      <View style={styles.accessContainer}>
+        <Text style={styles.accessTitle}>Teacher Tools</Text>
+        <Text style={styles.accessText}>Checking your account...</Text>
+      </View>
+    );
+  }
+
+  if (role !== 'teacher') {
+    return (
+      <View style={styles.accessContainer}>
+        <Ionicons name="lock-closed-outline" size={40} color={COLORS.textSecondary} />
+        <Text style={styles.accessTitle}>Teachers Only</Text>
+        <Text style={styles.accessText}>
+          Only teacher accounts can create events. This tool is for educators.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -227,6 +275,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  accessContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  accessTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginTop: 12,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  accessText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   content: {
     paddingHorizontal: 24,
